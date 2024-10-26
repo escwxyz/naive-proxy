@@ -13,15 +13,21 @@
   "license": "MIT",
   "commands": [
     {
+      "name": "toggle-naive-proxy",
+      "title": "Toggle NaïveProxy",
+      "description": "Toggle NaïveProxy process",
+      "mode": "menu-bar"
+    },
+    {
       "name": "start-naive-proxy",
       "title": "Start NaïveProxy",
-      "description": "Start NaïveProxy process",
+      "description": "Start NaïveProxy",
       "mode": "no-view"
     },
     {
       "name": "stop-naive-proxy",
       "title": "Stop NaïveProxy",
-      "description": "Stop NaïveProxy process",
+      "description": "Stop NaïveProxy",
       "mode": "no-view"
     },
     {
@@ -35,17 +41,12 @@
       "title": "Show NaïveProxy Logs",
       "description": "Show NaïveProxy logs",
       "mode": "view"
-    },
-    {
-      "name": "test",
-      "title": "test",
-      "description": "test menu bar",
-      "mode": "menu-bar"
     }
   ],
   "dependencies": {
     "@raycast/api": "^1.84.2",
     "@raycast/utils": "^1.17.0",
+    "run-applescript": "^7.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

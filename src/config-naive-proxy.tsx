@@ -2,32 +2,9 @@ import { Form, ActionPanel, Action, useNavigation, LocalStorage } from "@raycast
 import { useState, useEffect } from "react";
 import fs from "fs";
 import { isExecutable, showErrorToast, showSuccessToast } from "./utils";
-import { ExtensionConfig } from "./types";
+import { ExtensionConfig } from "./libs/types";
+import { ConfigFileSchema, ConfigSchema, listenSchema, proxySchema } from "./libs/validations";
 import { z } from "zod";
-
-const listenSchema = z.string().startsWith("socks://");
-
-const proxySchema = z.string().startsWith("https://").or(z.string().startsWith("quic://"));
-
-const logSchema = z.union([
-  z.string().endsWith(".log"),
-  z.string().max(0), // This allows an empty string
-  z.undefined(), // This allows the field to be omitte
-]);
-
-const ConfigFileSchema = z.object({
-  listen: listenSchema,
-  proxy: proxySchema,
-  log: logSchema,
-});
-
-const ConfigSchema = z.object({
-  naiveProxyPath: z.array(z.string()).nonempty(),
-  configFilePath: z.array(z.string()).optional(),
-  proxy: z.string().optional(),
-  listen: z.string().optional(),
-  log: z.string().optional(),
-});
 
 export default function Command() {
   const [configValues, setConfigValues] = useState<ExtensionConfig>({
@@ -72,6 +49,7 @@ export default function Command() {
       }
 
       if (validatedConfig.configFilePath && validatedConfig.configFilePath.length > 0) {
+        // if config file path is provided
         const configPath = validatedConfig.configFilePath[0];
         if (!fs.existsSync(configPath) || !fs.lstatSync(configPath).isFile()) {
           throw new Error("Config file not found");
