@@ -5,17 +5,88 @@ import { z } from "zod";
 const nonEmptyString = z.string().min(1, "Cannot be empty");
 const positiveInteger = z.number().int().positive();
 
-export const listenUriSchema = z.string().regex(/^(socks|http|redir):\/\/([^:@]+:[^@]+@)?[^:@]+?(:\d+)?$/, {
-  message: "Invalid listen URL. Format should be: <LISTEN-PROTO>://<USER>:<PASS>@<ADDR>:<PORT>",
+export const listenUriSchema = z
+  .string()
+  .regex(/^(socks|http|redir):\/\/(([^:@]+:[^@]+@)?([^:@]+)?(:\d{1,5})?)?$/)
+  .refine(
+    (val) => {
+      const [proto, rest] = val.split("://");
+      if (!["socks", "http", "redir"].includes(proto)) return false;
+
+      if (!rest) return true; // Only protocol is specified, which is valid
+
+      const parts = rest.split("@");
+      const hostPart = parts.length > 1 ? parts[1] : parts[0];
+      const [, port] = hostPart.split(":");
+
+      if (port) {
+        const portNum = parseInt(port);
+        return !isNaN(portNum) && portNum >= 1 && portNum <= 65535;
+      }
+
+      return true; // Valid format
+    },
+    {
+      message:
+        "Invalid listen URI. Format should be: <LISTEN-PROTO>://[<USER>:<PASS>@][<ADDR>][:<PORT>] where <LISTEN-PROTO> is 'socks', 'http', or 'redir', and PORT (if present) is between 1 and 65535",
+    },
+  )
+  .describe("Listens at addr:port with protocol <LISTEN-PROTO>. Default proto, addr, port: socks, 0.0.0.0, 1080.");
+
+// SOCKS-PROXY schema
+const socksProxySchema = z
+  .string()
+  .regex(/^socks:\/\/[^:]+?(:\d{1,5})?$/)
+  .refine(
+    (val) => {
+      const parts = val.split(":");
+      if (parts.length === 2) return true; // No port specified
+      if (parts.length === 3) {
+        const port = parseInt(parts[2]);
+        return port >= 1 && port <= 65535;
+      }
+      return false; // Invalid format
+    },
+    { message: "Invalid SOCKS proxy. Format should be: socks://<HOSTNAME>[:<PORT>] with port between 1 and 65535" },
+  );
+
+// PROXY-CHAIN schema
+const proxyChainSchema = z
+  .string()
+  .regex(
+    /^(http|https|quic):\/\/(([^:@]+:[^@]+@)?[^:@]+?(:\d{1,5})?)(,(http|https|quic):\/\/(([^:@]+:[^@]+@)?[^:@]+?(:\d{1,5})?)){0,}$/,
+  )
+  .refine(
+    (val) => {
+      return val.split(",").every((uri) => {
+        if (uri === "") return false; // Reject empty URIs (handles consecutive commas)
+        const [proto, rest] = uri.split("://");
+        if (!["http", "https", "quic"].includes(proto)) return false;
+        if (!rest) return false; // Reject if there's nothing after ://
+
+        const parts = rest.split("@");
+        const hostPart = parts.length > 1 ? parts[1] : parts[0];
+        const [host, port] = hostPart.split(":");
+
+        if (!host) return false; // Host is required
+
+        if (port) {
+          const portNum = parseInt(port);
+          return !isNaN(portNum) && portNum >= 1 && portNum <= 65535;
+        }
+
+        return true; // Valid format
+      });
+    },
+    {
+      message:
+        "Invalid proxy chain. Format should be: <PROXY-URI>[,<PROXY-URI>...] where each PROXY-URI is <PROXY-PROTO>://[<USER>:<PASS>@]<HOSTNAME>[:<PORT>] with optional port between 1 and 65535",
+    },
+  );
+
+export const proxySchema = z.union([socksProxySchema, proxyChainSchema], {
+  message: "Invalid proxy configuration. Either a SOCKS proxy or a chain of HTTP/HTTPS/QUIC proxies is required",
 });
-
-const proxyUriString = z.string().regex(/^(http|https|quic):\/\/([^:@]+:[^@]+@)?[^:@]+?(:\d+)?$/);
-
-const socksProxyString = z.string().regex(/^socks:\/\/[^:@]+?(:\d+)?$/);
-
-const proxyChainSchema = z.array(proxyUriString).min(1);
-
-export const proxySchema = z.union([socksProxyString, proxyChainSchema]);
 
 export const logSchema = z.union([
   z.string().endsWith(".log"),
