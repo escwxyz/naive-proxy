@@ -49,42 +49,58 @@ export async function checkIfProxyIsRunning(): Promise<boolean> {
 
 type ListenArg = `--listen=${string}`;
 type ProxyArg = `--proxy=${string}`;
-type ArgsTuple = [ListenArg, ProxyArg];
+type LogArg = `--log=${string}`;
+type Args = [ListenArg, ProxyArg, LogArg?]; // TODO add more args
 
-export async function parseArgs(config: ExtensionConfig): Promise<ArgsTuple | null> {
+export async function parseArgs(config: ExtensionConfig): Promise<Args | null> {
   return await match(config)
-    .with({ listen: P.string, proxy: P.string }, async ({ listen, proxy }): Promise<ArgsTuple> => {
-      console.debug("listen and proxy are set");
-      return [`--listen=${listen}`, `--proxy=${proxy}`];
-    })
     .with(
       {
         listen: P.string,
-        proxy: P.nullish,
-        configFilePath: P.when((path): path is string[] => Array.isArray(path) && path.length == 1),
+        proxy: P.string,
+        log: P.optional(P.string),
       },
-      async ({ listen, configFilePath }): Promise<ArgsTuple | null> => {
-        console.debug("listen and configFilePath are set");
-        const path = configFilePath as string[];
-        const fileConfig = await readConfigFile(path);
-        return fileConfig?.proxy ? [`--listen=${listen}`, `--proxy=${fileConfig.proxy}`] : null;
+      async ({ listen, proxy, log }): Promise<Args> => {
+        const args: string[] = [`--listen=${listen}`, `--proxy=${proxy}`];
+        if (log) args.push(`--log=${log}`);
+        return args as Args;
       },
     )
     .with(
-      { proxy: P.string, configFilePath: P.array(P.string) },
-      async ({ proxy, configFilePath }): Promise<ArgsTuple | null> => {
-        console.debug("proxy and configFilePath are set");
+      {
+        configFilePath: P.when((path): path is string[] => Array.isArray(path) && path.length === 1),
+      },
+      async ({ configFilePath }): Promise<Args | null> => {
         const fileConfig = await readConfigFile(configFilePath);
-        return fileConfig?.listen ? [`--listen=${fileConfig.listen}`, `--proxy=${proxy}`] : null;
+        if (!fileConfig?.listen || !fileConfig?.proxy) return null;
+
+        const args: string[] = [`--listen=${fileConfig.listen}`, `--proxy=${fileConfig.proxy}`];
+        if (fileConfig.log) args.push(`--log=${fileConfig.log}`);
+        return args as Args;
       },
     )
-    .with({ configFilePath: P.array(P.string) }, async ({ configFilePath }): Promise<ArgsTuple | null> => {
-      const fileConfig = await readConfigFile(configFilePath);
-      console.debug("fileConfig:\n", fileConfig);
-      return fileConfig?.listen && fileConfig?.proxy
-        ? [`--listen=${fileConfig.listen}`, `--proxy=${fileConfig.proxy}`]
-        : null;
-    })
+    .with(
+      {
+        configFilePath: P.when((path): path is string[] => Array.isArray(path) && path.length === 1),
+        listen: P.optional(P.string),
+        proxy: P.optional(P.string),
+        log: P.optional(P.string),
+      },
+      async ({ configFilePath, listen, proxy, log }): Promise<Args | null> => {
+        const fileConfig = await readConfigFile(configFilePath);
+        if (!fileConfig) return null;
+
+        const effectiveListen = listen || fileConfig.listen;
+        const effectiveProxy = proxy || fileConfig.proxy;
+        const effectiveLog = log || fileConfig.log;
+
+        if (!effectiveListen || !effectiveProxy) return null;
+
+        const args: string[] = [`--listen=${effectiveListen}`, `--proxy=${effectiveProxy}`];
+        if (effectiveLog) args.push(`--log=${effectiveLog}`);
+        return args as Args;
+      },
+    )
     .otherwise(() => {
       console.error("No valid configuration");
       return null;

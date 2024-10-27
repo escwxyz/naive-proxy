@@ -1,16 +1,10 @@
 import { LocalStorage } from "@raycast/api";
-import {
-  ExtensionConfig,
-  ExtensionConfigSchema,
-  NaiveProxyConfig,
-  NaiveProxyConfigJson,
-  NaiveProxyConfigJsonSchema,
-  NaiveProxyConfigSchema,
-} from "../types";
+import { ExtensionConfig, NaiveProxyConfigJson } from "../types";
 import { CONFIG_STORAGE_KEY } from "../contants";
 import { readFile } from "fs/promises";
 import fs from "fs";
 import { isExecutable } from ".";
+import { ExtensionConfigSchema, NaiveProxyConfigJsonSchema } from "../schema";
 
 export async function isConfigured(): Promise<boolean> {
   const config = await LocalStorage.getItem<string>(CONFIG_STORAGE_KEY);
@@ -26,41 +20,60 @@ export async function saveConfig(config: ExtensionConfig): Promise<void> {
   await LocalStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
 }
 
+function validateNaiveExecutable(path: string) {
+  if (!fs.existsSync(path) || !fs.lstatSync(path).isFile() || !isExecutable(path)) {
+    throw new Error("Invalid NaiveProxy executable");
+  }
+}
+
+// export async function parseConfig(config: ExtensionConfig): Promise<ExtensionConfig> {
+//   // choose what values shall be parsed and saved into local storage
+//   try {
+//     const validConfig = ExtensionConfigSchema.parse(config);
+//   }
+// }
+
 export async function validateConfig(config: ExtensionConfig): Promise<ExtensionConfig> {
   try {
     const validatedConfig = ExtensionConfigSchema.parse(config);
 
     // Validate NaiveProxy executable
     const naive = validatedConfig.naiveProxyPath[0];
-    if (!fs.existsSync(naive) || !fs.lstatSync(naive).isFile() || !isExecutable(naive)) {
-      throw new Error("Invalid NaiveProxy executable");
-    }
+    validateNaiveExecutable(naive);
 
-    // Case 1: CLI args provided
-    if (validatedConfig.listen.length > 0 || validatedConfig.proxy) {
-      const cliConfig: NaiveProxyConfig = {
+    let finalConfig: ExtensionConfig = {
+      naiveProxyPath: [naive],
+    };
+
+    // Case 1: CLI args provided (overwrite config.json)
+    if (validatedConfig.listen || validatedConfig.proxy) {
+      finalConfig = {
+        ...validatedConfig, // Include other fields from validatedConfig
         listen: validatedConfig.listen,
         proxy: validatedConfig.proxy,
       };
-      NaiveProxyConfigSchema.parse(cliConfig);
     }
-
     // Case 2: Fallback to config.json
-    else if (validatedConfig.configFilePath && validatedConfig.configFilePath.length > 0) {
+    else if (validatedConfig.configFilePath && validatedConfig.configFilePath.length == 1) {
       const configPath = validatedConfig.configFilePath[0];
       if (!fs.existsSync(configPath) || !fs.lstatSync(configPath).isFile()) {
         throw new Error("Config file not found");
       }
       const configContent = fs.readFileSync(configPath, "utf8");
-      const parsedFileConfig = NaiveProxyConfigSchema.parse(JSON.parse(configContent));
-      if (!parsedFileConfig.listen || !parsedFileConfig.proxy) {
-        throw new Error("Config file must contain both 'listen' and 'proxy' fields");
-      }
+      const parsedFileConfig = JSON.parse(configContent) as NaiveProxyConfigJson;
+
+      finalConfig = {
+        ...parsedFileConfig,
+        naiveProxyPath: [naive],
+        listen: validatedConfig.listen || parsedFileConfig.listen,
+        proxy: validatedConfig.proxy || parsedFileConfig.proxy,
+      };
     } else {
       throw new Error("Either CLI args (listen and proxy) or a valid config file must be provided");
     }
 
-    return validatedConfig;
+    // Validate the final configuration
+    return ExtensionConfigSchema.parse(finalConfig);
   } catch (error) {
     console.error("Error validating config:", error);
     throw error;
