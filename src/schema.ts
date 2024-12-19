@@ -183,25 +183,27 @@ export const proxySchema = z.union([socksProxySchema, proxyChainSchema], {
   message: "Invalid proxy configuration. Either a SOCKS proxy or a chain of HTTP/HTTPS/QUIC proxies is required",
 });
 
+export const logSchema = z
+  .string()
+  .optional()
+  .superRefine((value, ctx) => {
+    if (!value || value.trim() === "") return;
+
+    const result = validateLogPath(value);
+    if (!result.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.error!,
+        path: [],
+      });
+    }
+  })
+  .describe("Saves log to this file. Will be created automatically if it doesn't exist.");
+
 const BaseConfigSchema = z.object({
   listen: listenUriSchema,
   proxy: proxySchema,
-  log: z
-    .string()
-    .optional()
-    .superRefine((value, ctx) => {
-      if (!value || value.trim() === "") return;
-
-      const result = validateLogPath(value);
-      if (!result.success) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: result.error!,
-          path: [],
-        });
-      }
-    })
-    .describe("Saves log to this file. Will be created automatically if it doesn't exist."),
+  log: logSchema,
 });
 
 const OptionalConfigSchema = z.object({

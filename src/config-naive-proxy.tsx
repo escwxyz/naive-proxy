@@ -1,7 +1,14 @@
 import { Form, ActionPanel, Action, useNavigation } from "@raycast/api";
 import { useEffect } from "react";
 import { ExtensionConfig } from "./types";
-import { ConfigFileSchema, ExtensionConfigSchema, listenUriSchema, NaiveExecutableSchema, proxySchema } from "./schema";
+import {
+  ConfigFileSchema,
+  ExtensionConfigSchema,
+  listenUriSchema,
+  logSchema,
+  NaiveExecutableSchema,
+  proxySchema,
+} from "./schema";
 import { z } from "zod";
 import { showErrorToast, showSuccessToast } from "./utils";
 import { useForm } from "@raycast/utils";
@@ -93,6 +100,14 @@ export default function Command() {
           return "Proxy is required when not using a config file";
         }
       },
+      log: (value) => {
+        if (value) {
+          const result = logSchema.safeParse(value);
+          if (!result.success) {
+            return result.error.errors[0].message;
+          }
+        }
+      },
     },
   });
 
@@ -130,6 +145,7 @@ export default function Command() {
         {...itemProps.proxy}
         storeValue
       />
+      <Form.TextField title="Log" placeholder="e.g., /path/to/logfile.txt" {...itemProps.log} storeValue />
     </Form>
   );
 }

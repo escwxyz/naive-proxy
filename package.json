@@ -13,12 +13,6 @@
   "license": "MIT",
   "commands": [
     {
-      "name": "toggle-naive-proxy",
-      "title": "Toggle NaïveProxy",
-      "description": "Toggle NaïveProxy process",
-      "mode": "menu-bar"
-    },
-    {
       "name": "start-naive-proxy",
       "title": "Start NaïveProxy",
       "description": "Start NaïveProxy",
@@ -35,12 +29,19 @@
       "title": "Configure NaïveProxy",
       "description": "Configure NaïveProxy",
       "mode": "view"
+    },
+    {
+      "name": "show-logs",
+      "title": "Show Logs",
+      "description": "Show NaïveProxy logs",
+      "mode": "view"
     }
   ],
   "dependencies": {
     "@raycast/api": "^1.84.2",
     "@raycast/utils": "^1.17.0",
     "run-applescript": "^7.0.0",
+    "traffic-lens": "^0.0.1",
     "ts-pattern": "^5.5.0",
     "zod": "^3.23.8"
   },
@@ -60,6 +61,7 @@
     "lint": "ray lint",
     "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
     "publish": "npx @raycast/api@latest publish",
-    "test": "vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }

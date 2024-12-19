@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { proxySchema, listenUriSchema } from "../src/types";
+import { proxySchema, listenUriSchema } from "../src/schema";
 
 describe("listenUriSchema", () => {
   test.each([
